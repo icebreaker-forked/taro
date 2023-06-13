@@ -2,6 +2,12 @@ const config = {
   projectName: 'demo',
   date: '2021-7-15',
   designWidth: 750,
+  compiler: {
+    prebundle: {
+      enable: false,
+    },
+    type: 'webpack5',
+  },
   deviceRatio: {
     640: 2.34 / 2,
     750: 1,
