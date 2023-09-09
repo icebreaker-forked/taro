@@ -29,7 +29,14 @@ export default (ctx: IPluginContext) => {
     setLoader(chain)
 
     if (isWebPlatform()) {
-      setStyleLoader(ctx, chain)
+      const { isBuildNativeComp = false } = ctx.runOpts?.options || {}
+      const externals: Record<string, string> = {}
+      if (isBuildNativeComp) {
+        // Note: 该模式不支持 prebundle 优化，不必再处理
+        externals.vue = 'vue'
+      }
+
+      chain.merge({ externals })
     }
   })
 
@@ -166,20 +173,6 @@ function customVueChain (chain, data) {
     .use('vueLoader')
     .loader(vueLoaderPath)
     .options(vueLoaderOption)
-}
-
-function setStyleLoader (ctx: IPluginContext, chain) {
-  const config = ctx.initialConfig.h5 || {}
-
-  const { styleLoaderOption = {} } = config
-  chain.module
-    .rule('customStyle')
-    .merge({
-      use: [{
-        loader: 'style-loader',
-        options: styleLoaderOption
-      }]
-    })
 }
 
 function setLoader (chain) {

@@ -32,15 +32,9 @@ export function loadAnimateStyle (ms = 300) {
 export function loadRouterStyle (usingWindowScroll) {
   const css = `
   .taro_router {
-    overflow: hidden;
     position: relative;
     width: 100%;
     height: 100%;
-    min-height: 100vh;
-  }
-
-  .taro-tabbar__container .taro_router {
-    min-height: calc(100vh - 50px);
   }
 
   .taro_page {
