@@ -1,14 +1,15 @@
 /* eslint-disable camelcase */
+import { relative, resolve } from 'node:path'
+
 import traverse, { NodePath, Visitor } from '@babel/traverse'
 import * as t from '@babel/types'
-import * as fs from 'fs'
+import { fs } from '@tarojs/helper'
 import { parse, stringify } from 'himalaya-wxml'
 import { kebabCase } from 'lodash'
-import { relative, resolve } from 'path'
 
 import { replaceIdentifier, replaceMemberExpression } from './script'
 import { buildTemplateName, getWXMLsource } from './template'
-import { buildImportStatement, codeFrameError, parseCode, setting } from './utils'
+import { buildImportStatement, codeFrameError, getLineBreak, parseCode, setting, updateLogFileContent } from './utils'
 import {
   AllKindNode,
   Attribute,
@@ -34,6 +35,7 @@ interface Result {
 }
 
 export function parseVue (dirPath: string, wxml: string, jsCode = ''): Result {
+  updateLogFileContent(`INFO [taroize] parseVue - 入参 ${getLineBreak()}dirPath: ${dirPath} ${getLineBreak()}`)
   let ast = parseCode(jsCode)
   let foundWXInstance = false
   const vistor: Visitor = {

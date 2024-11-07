@@ -1,12 +1,13 @@
+import path from 'node:path'
+
 import { getPlatformType, PLATFORM_TYPE } from '@tarojs/shared'
-import path from 'path'
-import webpackDevServer from 'webpack-dev-server'
 
 import BasePrebundle, { IPrebundle } from './prebundle'
 import { type IWebPrebundleConfig, VirtualModule } from './web'
 
 import type { Compiler, EntryObject } from 'webpack'
 import type Chain from 'webpack-chain'
+import type webpackDevServer from 'webpack-dev-server'
 import type { IMiniPrebundleConfig } from './mini'
 
 export * from './prebundle'
@@ -28,6 +29,9 @@ export interface IPrebundleParam {
   publicPath?: string
   runtimePath?: string | string[]
   isBuildPlugin?: boolean
+  alias?: Record<string, any>
+  defineConstants?: Record<string, any>
+  modifyAppConfig?: (appConfig: any) => Promise<any>
 }
 
 export default class TaroPrebundle {
@@ -62,7 +66,10 @@ export default class TaroPrebundle {
       publicPath = chain.output.get('publicPath') || '/',
       runtimePath,
       sourceRoot = 'src',
-      isBuildPlugin
+      isBuildPlugin,
+      alias,
+      defineConstants,
+      modifyAppConfig,
     } = this.params
     let chunkFilename = chain.output.get('chunkFilename') ?? `${chunkDirectory}/[name].js`
     chunkFilename = chunkFilename.replace(/\[([a-z]*hash)[^[\]\s]*\]/ig, '_$1_')
@@ -82,7 +89,10 @@ export default class TaroPrebundle {
       publicPath,
       runtimePath,
       sourceRoot,
-      isBuildPlugin
+      isBuildPlugin,
+      alias,
+      defineConstants,
+      modifyAppConfig,
     }
   }
 

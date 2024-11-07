@@ -1,8 +1,10 @@
 import { Config } from '@stencil/core'
 import { OutputTarget } from '@stencil/core/internal'
-import { sass } from '@stencil/sass'
+import * as path from 'path'
+import externals from 'rollup-plugin-node-externals'
 
-import { reactOutputTarget, vue2OutputTarget, vue3OutputTarget } from './output-target'
+import { reactOutputTarget, solidOutputTarget, vue3OutputTarget } from './output-target'
+import scssPlugin from './plugin/sass-plugin'
 
 const isProd = process.env.NODE_ENV === 'production'
 const outputTargets: OutputTarget[] = [
@@ -11,25 +13,6 @@ const outputTargets: OutputTarget[] = [
     customElementsDir: 'dist/components',
     includeImportCustomElements: true,
     proxiesFile: '../taro-components-library-react/src/components.ts',
-  }),
-  vue2OutputTarget({
-    componentCorePackage: '@tarojs/components',
-    componentModels: [{
-      elements: ['taro-input-core', 'taro-textarea-core'],
-      targetAttr: 'value',
-      event: 'update:modelValue',
-    }, {
-      elements: ['taro-picker-core', 'taro-slider-core'],
-      targetAttr: 'value',
-      event: 'update:modelValue',
-    }, {
-      elements: ['taro-switch-core'],
-      targetAttr: 'checked',
-      event: 'update:modelValue',
-    }],
-    customElementsDir: 'dist/components',
-    includeImportCustomElements: true,
-    proxiesFile: '../taro-components-library-vue2/src/components.ts',
   }),
   vue3OutputTarget({
     componentCorePackage: '@tarojs/components',
@@ -50,12 +33,26 @@ const outputTargets: OutputTarget[] = [
     includeImportCustomElements: true,
     proxiesFile: '../taro-components-library-vue3/src/components.ts',
   }),
+  solidOutputTarget({
+    componentCorePackage: '@tarojs/components',
+    customElementsDir: 'dist/components',
+    includeImportCustomElements: true,
+    proxiesFile: '../taro-components-library-solid/src/components.ts',
+  }),
   {
     type: 'dist',
     esmLoaderPath: '../loader',
   },
   {
-    type: 'dist-custom-elements'
+    type: 'dist-custom-elements',
+    minify: isProd,
+    // inlineDynamicImports: true,
+    autoDefineCustomElements: false,
+    generateTypeDeclarations: false,
+  },
+  {
+    type: 'dist-hydrate-script',
+    dir: 'dist/hydrate',
   },
 ]
 
@@ -65,9 +62,15 @@ if (!isProd) {
 
 export const config: Config = {
   namespace: 'taro-components',
-  globalStyle: './src/global.css',
+  globalStyle: './src/styles/index.scss',
   plugins: [
-    sass()
+    scssPlugin({
+      injectGlobalPaths: [
+        'src/styles/base/fn',
+        'src/styles/base/variable/color',
+      ],
+      outputStyle: 'compressed',
+    }),
   ],
   sourceMap: !isProd,
   nodeResolve: {
@@ -93,13 +96,6 @@ export const config: Config = {
    */
   testing: {
     globals: {
-      ENABLE_INNER_HTML: true,
-      ENABLE_ADJACENT_HTML: true,
-      ENABLE_SIZE_APIS: true,
-      ENABLE_TEMPLATE_CONTENT: true,
-      ENABLE_MUTATION_OBSERVER: true,
-      ENABLE_CLONE_NODE: true,
-      ENABLE_CONTAINS: true,
       'ts-jest': {
         diagnostics: false,
         tsconfig: {
@@ -110,10 +106,11 @@ export const config: Config = {
       }
     },
     moduleNameMapper: {
+      '@tarojs/taro': path.resolve(__dirname, '..', '..', 'packages/taro-h5/dist/index'),
       '(\\.(css|less|sass|scss))|weui': '<rootDir>/__mocks__/styleMock.js',
-      '\\.(gif|ttf|eot|svg)$': '<rootDir>/__mocks__/fileMock.js'
+      '\\.(gif|ttf|eot|svg)$': '<rootDir>/__mocks__/fileMock.js',
     },
-    setupFiles: ['<rootDir>/__tests__/setup.ts'],
+    setupFiles: ['<rootDir>/__mocks__/setup.ts'],
     testRegex: '(\\.|/)(e2e|spec|test|tt)\\.[jt]sx?$',
     // timers: 'fake',
     transform: {
@@ -127,13 +124,13 @@ export const config: Config = {
     }
   },
   rollupPlugins: {
-    after: [{
-      name: 'add-external',
-      options: opts => {
-        opts.external = [/^@tarojs[\\/][a-z]+/]
-
-        return opts
-      }
-    }]
+    before: [
+      externals({
+        deps: true,
+        devDeps: false,
+        include: [/^@tarojs[\\/][a-z]+/],
+        exclude: [/^@stencil[\\/][a-z]+/, 'classnames'],
+      }),
+    ]
   }
 }

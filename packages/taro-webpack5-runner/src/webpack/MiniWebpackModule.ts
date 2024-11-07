@@ -1,16 +1,19 @@
+import path from 'node:path'
+
 import {
   isNodeModule,
   recursiveMerge,
   REG_CSS,
   REG_LESS,
+  REG_NODE_MODULES,
   REG_SASS_SASS,
   REG_SASS_SCSS,
   REG_STYLUS,
   REG_TEMPLATE
 } from '@tarojs/helper'
 import { cloneDeep } from 'lodash'
-import path from 'path'
 
+import { FILE_COUNTER_MAP } from '../plugins/MiniCompileModePlugin'
 import { getDefaultPostcssConfig, getPostcssPlugins } from '../postcss/postcss.mini'
 import { WebpackModule } from './WebpackModule'
 
@@ -18,7 +21,6 @@ import type { Func, PostcssOption } from '@tarojs/taro/types/compile'
 import type { MiniCombination } from './MiniCombination'
 import type { CssModuleOptionConfig, IRule } from './WebpackModule'
 
-type PostcssUrlConfig = PostcssOption.url['config']
 type CSSLoaders = {
   include?
   resourceQuery?
@@ -44,7 +46,7 @@ export class MiniWebpackModule {
       deviceRatio
     } = config
 
-    const { postcssOption, postcssUrlOption, cssModuleOption } = this.parsePostCSSOptions()
+    const { postcssOption, cssModuleOption } = this.parsePostCSSOptions()
 
     this.__postcssOption = getDefaultPostcssConfig({
       designWidth,
@@ -92,7 +94,12 @@ export class MiniWebpackModule {
         generator: {
           filename ({ filename }) {
             const extname = path.extname(filename)
-            return filename.replace(sourceRoot + '/', '').replace(extname, fileType.templ).replace(/node_modules/gi, 'npm')
+            const nodeModulesRegx = new RegExp(REG_NODE_MODULES, 'gi')
+
+            return filename
+              .replace(sourceRoot + '/', '')
+              .replace(extname, fileType.templ)
+              .replace(nodeModulesRegx, 'npm')
           }
         },
         use: [WebpackModule.getLoader(path.resolve(__dirname, '../loaders/miniTemplateLoader'), {
@@ -105,17 +112,21 @@ export class MiniWebpackModule {
         type: 'asset/resource',
         generator: {
           filename ({ filename }) {
-            return filename.replace(sourceRoot + '/', '').replace(/node_modules/gi, 'npm')
+            const nodeModulesRegx = new RegExp(REG_NODE_MODULES, 'gi')
+
+            return filename
+              .replace(sourceRoot + '/', '')
+              .replace(nodeModulesRegx, 'npm')
           }
         },
         use: [WebpackModule.getLoader(path.resolve(__dirname, '../loaders/miniXScriptLoader'))]
       },
 
-      media: this.getMediaRule(postcssUrlOption),
+      media: this.getMediaRule(),
 
-      font: this.getFontRule(postcssUrlOption),
+      font: this.getFontRule(),
 
-      image: this.getImageRule(postcssUrlOption)
+      image: this.getImageRule()
     }
     return { rule }
   }
@@ -195,23 +206,28 @@ export class MiniWebpackModule {
   }
 
   getScriptRule () {
-    const { sourceDir } = this.combination
+    const { sourceDir, config } = this.combination
     const { compile = {} } = this.combination.config
     const rule: IRule = WebpackModule.getScriptRule()
 
-    if (compile.exclude && compile.exclude.length) {
-      rule.exclude = [
-        ...compile.exclude,
-        filename => /css-loader/.test(filename) || (/node_modules/.test(filename) && !(/taro/.test(filename)))
-      ]
-    } else if (compile.include && compile.include.length) {
-      rule.include = [
-        ...compile.include,
-        sourceDir,
-        filename => /taro/.test(filename)
-      ]
-    } else {
-      rule.exclude = [filename => /css-loader/.test(filename) || (/node_modules/.test(filename) && !(/taro/.test(filename)))]
+    rule.include = [
+      sourceDir,
+      filename => /(?<=node_modules[\\/]).*taro/.test(filename)
+    ]
+    if (Array.isArray(compile.include)) {
+      rule.include.unshift(...compile.include)
+    }
+
+    if (Array.isArray(compile.exclude)) {
+      rule.exclude = [...compile.exclude]
+    }
+
+    if (config.experimental?.compileMode === true) {
+      rule.use.compilerLoader = WebpackModule.getLoader(path.resolve(__dirname, '../loaders/miniCompilerLoader'), {
+        platform: config.platform.toUpperCase(),
+        template: config.template,
+        FILE_COUNTER_MAP,
+      })
     }
 
     return rule
@@ -219,12 +235,6 @@ export class MiniWebpackModule {
 
   parsePostCSSOptions () {
     const { postcss: postcssOption = {} } = this.combination.config
-    const defaultUrlOption: PostcssOption.url = {
-      enable: true,
-      config: {
-        limit: 10 * 1024 // limit 10k base on document
-      }
-    }
     const defaultCssModuleOption: PostcssOption.cssModules = {
       enable: false,
       config: {
@@ -233,39 +243,29 @@ export class MiniWebpackModule {
       }
     }
 
-    const urlOptions: PostcssOption.url = recursiveMerge({}, defaultUrlOption, postcssOption.url)
-    let postcssUrlOption = {} as PostcssUrlConfig
-    if (urlOptions.enable) {
-      postcssUrlOption = urlOptions.config
-    }
-
     const cssModuleOption: PostcssOption.cssModules = recursiveMerge({}, defaultCssModuleOption, postcssOption.cssModules)
 
     return {
       postcssOption,
-      postcssUrlOption,
       cssModuleOption
     }
   }
 
-  getMediaRule (postcssOptions: PostcssUrlConfig) {
+  getMediaRule () {
     const sourceRoot = this.combination.sourceRoot
-    const { mediaUrlLoaderOption } = this.combination.config
-    const options = Object.assign({}, postcssOptions, mediaUrlLoaderOption)
-    return WebpackModule.getMediaRule(sourceRoot, options)
+    const { mediaUrlLoaderOption = {} } = this.combination.config
+    return WebpackModule.getMediaRule(sourceRoot, mediaUrlLoaderOption)
   }
 
-  getFontRule (postcssOptions: PostcssUrlConfig) {
+  getFontRule () {
     const sourceRoot = this.combination.sourceRoot
-    const { fontUrlLoaderOption } = this.combination.config
-    const options = Object.assign({}, postcssOptions, fontUrlLoaderOption)
-    return WebpackModule.getFontRule(sourceRoot, options)
+    const { fontUrlLoaderOption = {} } = this.combination.config
+    return WebpackModule.getFontRule(sourceRoot, fontUrlLoaderOption)
   }
 
-  getImageRule (postcssOptions: PostcssUrlConfig) {
+  getImageRule () {
     const sourceRoot = this.combination.sourceRoot
-    const { imageUrlLoaderOption } = this.combination.config
-    const options = Object.assign({}, postcssOptions, imageUrlLoaderOption)
-    return WebpackModule.getImageRule(sourceRoot, options)
+    const { imageUrlLoaderOption = {} } = this.combination.config
+    return WebpackModule.getImageRule(sourceRoot, imageUrlLoaderOption)
   }
 }

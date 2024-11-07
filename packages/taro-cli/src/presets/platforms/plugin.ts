@@ -1,3 +1,6 @@
+import * as path from 'node:path'
+
+import { fs } from '@tarojs/helper'
 import { getPlatformType } from '@tarojs/shared'
 
 import type { IPluginContext } from '@tarojs/service'
@@ -35,7 +38,7 @@ export default (ctx: IPluginContext) => {
               ...config,
               isBuildPlugin: true,
               isWatch,
-              outputRoot: `${config.outputRoot}`,
+              outputRoot: `${config.outputRoot}/plugin`,
               platform
             },
             options: Object.assign({}, options, {
@@ -63,7 +66,15 @@ export default (ctx: IPluginContext) => {
         })
       }
 
-      buildPlugin(plugin)
+      await buildPlugin(plugin)
+
+      try {
+        const docSrcPath = path.join(process.cwd(), 'src/plugin/doc')
+        const docDestPath = path.join(process.cwd(), 'miniprogram/doc')
+        fs.copy(docSrcPath, docDestPath)
+      } catch (err) {
+        console.error('[@tarojs/cli] build plugin doc failed: ', err)
+      }
     }
   })
 }

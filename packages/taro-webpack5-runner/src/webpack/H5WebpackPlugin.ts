@@ -1,18 +1,20 @@
-import { chalk, fs, recursiveMerge } from '@tarojs/helper'
-import { IPostcssOption } from '@tarojs/taro/types/compile'
+import path from 'node:path'
+
+import { chalk, fs, PLATFORMS, recursiveMerge } from '@tarojs/helper'
+import { PLATFORM_TYPE } from '@tarojs/shared'
 import HtmlWebpackPlugin from 'html-webpack-plugin'
-import path from 'path'
 
 import H5Plugin from '../plugins/H5Plugin'
 import WebpackPlugin from './WebpackPlugin'
 
+import type { IPostcssOption } from '@tarojs/taro/types/compile'
 import type { H5Combination } from './H5Combination'
 import type { PluginArgs } from './WebpackPlugin'
 
 export class H5WebpackPlugin {
   combination: H5Combination
   pages?: string[]
-  pxtransformOption?: IPostcssOption['pxtransform']
+  pxtransformOption?: IPostcssOption<'h5'>['pxtransform']
 
   constructor (combination: H5Combination) {
     this.combination = combination
@@ -49,9 +51,15 @@ export class H5WebpackPlugin {
     const {
       env = {},
       defineConstants = {},
+      buildAdapter = PLATFORMS.H5,
+      framework = 'react',
       useDeprecatedAdapterComponent = false
     } = this.combination.config
 
+    env.FRAMEWORK = JSON.stringify(framework)
+    env.TARO_ENV = JSON.stringify(buildAdapter)
+    env.TARO_PLATFORM = JSON.stringify(process.env.TARO_PLATFORM || PLATFORM_TYPE.WEB)
+    env.SUPPORT_TARO_POLYFILL = env.SUPPORT_TARO_POLYFILL || '"disabled"'
     env.SUPPORT_DINGTALK_NAVIGATE = env.SUPPORT_DINGTALK_NAVIGATE || '"disabled"'
     const envConstants = Object.keys(env).reduce((target, key) => {
       target[`process.env.${key}`] = env[key]
@@ -98,7 +106,7 @@ export class H5WebpackPlugin {
     const rootValue = baseFontSize / options.deviceRatio![designWidth!] * 2
     let htmlScript = ''
     if ((options?.targetUnit ?? 'rem') === 'rem') {
-      htmlScript = `!function(n){function f(){var e=n.document.documentElement,w=e.getBoundingClientRect().width,x=${rootValue}*w/${designWidth};e.style.fontSize=x>=${max}?"${max}px":x<=${min}?"${min}px":x+"px"}n.addEventListener("resize",(function(){f()})),f()}(window);`
+      htmlScript = `!function(n){function f(){var e=n.document.documentElement,r=e.getBoundingClientRect(),width=r.width,height=r.height,arr=[width,height].filter(function(value){return Boolean(value)}),w=Math.min.apply(Math,arr),x=${rootValue}*w/${designWidth};e.style.fontSize=x>=${max}?"${max}px":x<=${min}?"${min}px":x+"px"}; n.addEventListener("resize",(function(){f()})),f()}(window);`
     }
     const args: Record<string, string | string []> = {
       filename: `${entry || 'index'}.html`,
@@ -140,9 +148,12 @@ export class H5WebpackPlugin {
       routerConfig: router,
       runtimePath: config.runtimePath,
       pxTransformConfig,
+      alias: config.alias,
+      defineConstants: config.defineConstants,
       /** building mode */
       prebundle: prebundleOptions.enable,
       isBuildNativeComp: this.combination.isBuildNativeComp,
+      noInjectGlobalStyle: this.combination.noInjectGlobalStyle,
       /** hooks & methods */
       onCompilerMake: config.onCompilerMake,
       onParseCreateElement: config.onParseCreateElement,

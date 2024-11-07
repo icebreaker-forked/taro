@@ -1,17 +1,27 @@
+import * as fs from 'node:fs'
+import * as path from 'node:path'
+
 import { codeFrameColumns } from '@babel/code-frame'
 import generate from '@babel/generator'
-import { NodePath, Scope } from '@babel/traverse'
+import template from '@babel/template'
 import * as t from '@babel/types'
-import * as fs from 'fs'
 import { cloneDeep } from 'lodash'
-import * as path from 'path'
+import * as prettier from 'prettier'
 
 import { Adapter, Adapters } from './adapter'
 import { IS_TARO_READY, LOOP_STATE, TARO_PACKAGE_NAME } from './constant'
+import { globals } from './global'
 import { buildBlockElement } from './jsx'
 import { transformOptions } from './options'
-// const template = require('babel-template')
-const template = require('@babel/template')
+
+import type { NodePath, Scope } from '@babel/traverse'
+
+const prettierJSConfig: prettier.Options = {
+  semi: false,
+  singleQuote: true,
+  parser: 'babel',
+}
+
 
 export function replaceJSXTextWithTextComponent(path: NodePath<t.JSXText | t.JSXExpressionContainer>) {
   const parent = path.findParent((p) => p.isJSXElement())
@@ -49,7 +59,7 @@ export function isDerivedFromProps(scope: Scope, bindingName: string) {
 export function isDerivedFromThis(scope: Scope, bindingName: string) {
   const binding = scope.getBinding(bindingName)
   if (binding && binding.path.isVariableDeclarator()) {
-    const init = binding.path.get('init')
+    const init = binding.path.get('init') as any
     if (t.isThisExpression(init)) {
       return true
     }
@@ -62,7 +72,6 @@ export const incrementId = () => {
   return () => id++
 }
 
-// tslint:disable-next-line:no-empty
 export const noop = function () {}
 
 export function getSuperClassCode(path: NodePath<t.ClassDeclaration>) {
@@ -75,7 +84,7 @@ export function getSuperClassCode(path: NodePath<t.ClassDeclaration>) {
         code,
         sourcePath: sourceValue,
       }
-    } catch (error) {}
+    } catch (e) {} // eslint-disable-line no-empty
   }
 }
 
@@ -85,8 +94,8 @@ export function getSuperClassPath(path: NodePath<t.ClassDeclaration>) {
     const binding = path.scope.getBinding(superClass.name)
     if (binding && binding.kind === 'module') {
       const bindingPath = binding.path.parentPath
-      if (t.isImportDeclaration(bindingPath)) {
-        const source = (bindingPath.node as any).source
+      if (t.isImportDeclaration(bindingPath as any)) {
+        const source = (bindingPath!.node as any).source
         if (source.value === TARO_PACKAGE_NAME) {
           return
         }
@@ -135,7 +144,6 @@ export function isVarName(str: string | unknown) {
   }
 
   try {
-    // tslint:disable-next-line:no-unused-expression
     new Function(str, 'var ' + str)
   } catch (e) {
     return false
@@ -287,7 +295,6 @@ export function generateAnonymousState(
           if (isArrowFunctionInJSX) {
             return
           }
-          // tslint:disable-next-line: strict-type-predicates
           if (t.isIdentifier(id) && !id.name.startsWith(LOOP_STATE) && !id.name.startsWith('_$') && init != null) {
             const newId = scope.generateDeclaredUidIdentifier('$' + id.name)
             refIds.forEach((refId) => {
@@ -303,7 +310,7 @@ export function generateAnonymousState(
             }
             refIds.add(t.identifier(variableName))
             blockStatement.scope.rename(id.name, newId.name)
-            path.parentPath.replaceWith(template('ID = INIT;')({ ID: newId, INIT: init }))
+            path.parentPath.replaceWith(template.statement('ID = INIT;')({ ID: newId, INIT: init }))
           }
         },
       })
@@ -318,7 +325,7 @@ export function generateAnonymousState(
         if (ifExpr && ifExpr.isIfStatement() && ifExpr.findParent((p) => p === callExpr)) {
           const consequent = ifExpr.get('consequent') as NodePath<t.Node>
           const test = ifExpr.get('test')
-          if (t.isBlockStatement(consequent)) {
+          if (t.isBlockStatement(consequent as any)) {
             if ((jsx != null && jsx === test) || jsx?.findParent((p) => p === test)) {
               func.body.body.unshift(buildConstVariableDeclaration(variableName, expr))
             } else {
@@ -626,7 +633,6 @@ export function reverseBoolean(expression: t.Expression) {
 export function isEmptyDeclarator(node: t.Node) {
   if (
     t.isVariableDeclarator(node) &&
-    // tslint:disable-next-line: strict-type-predicates
     (node.init === null || t.isNullLiteral(node.init))
   ) {
     return true
@@ -740,4 +746,92 @@ export function setAncestorCondition(jsx: NodePath<t.Node>, expr: t.Expression):
   }
 
   return expr
+}
+
+/**
+ * 获取不同操作系统下的换行符
+ *
+ * @returns { string } 换行符
+ */
+export function getLineBreak() {
+  if (process.platform === 'win32') {
+    return '\r\n'
+  }
+  return '\n'
+}
+
+/**
+ * 记录数据到logFileContent中
+ *
+ * @param data 日志数据
+ */
+export function updateLogFileContent(data: string) {
+  try {
+    globals.logFileContent += data
+  } catch (error) {
+    console.error(`记录日志数据异常 ${error.message}`)
+  }
+}
+
+/**
+ * 写入数据到日志文件中
+ *
+ */
+export function printToLogFile() {
+  try {
+    fs.appendFile(globals.logFilePath, globals.logFileContent, () => {})
+    globals.logFileContent = ''
+  } catch (error) {
+    console.error(`写入日志文件异常 ${error.message}`)
+  }
+}
+
+/**
+ * 将部分 ast 节点转为代码片段
+ * @param ast
+ * @returns
+ */
+export function astToCode (ast) {
+  if (!ast) return ''
+  try {
+    let formatCode = prettier.format(generate(ast).code, prettierJSConfig)
+    if (formatCode.startsWith(';')) {
+      formatCode = formatCode.slice(1)
+    }
+    return formatCode
+  } catch (err) {
+    //
+  }
+}
+
+/**
+ *  拓展原生 Error 属性
+ */
+export class IReportError extends Error {
+
+  // 错误信息类型
+  msgType: string
+
+  // 错误信息路径
+  filePath: string | 'JS_FILE' | 'WXML_FILE'
+
+  // 错误代码
+  code: string
+
+  // 错误代码位置信息
+  location: { col: number, row: number } | undefined
+
+  constructor (
+    message: string,
+    msgType?: string,
+    filePath?: string | 'JS_FILE' | 'WXML_FILE',
+    code?: string,
+    location?: { col: number, row: number } | undefined
+  ) {
+    super(message)
+    this.msgType = msgType || ''
+    this.filePath = filePath || ''
+    this.code = code || ''
+    this.location = location || { col: 0, row: 0 }
+  }
 }

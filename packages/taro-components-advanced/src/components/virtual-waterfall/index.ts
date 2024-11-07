@@ -96,6 +96,10 @@ interface VirtualWaterfallProps<T = any> extends Omit<StandardProps, 'children'>
   /** 触底事件 */
   onScrollToLower?: () => void
   style?: CSSProperties
+  /** 这是一个 fix 类型的参数，针对于各端小程序，在层级太深的情况下会生成 Taro 的自定义组件，导致一般的选择器字符会查询不到对应的元素，需要加上类似 #container >>> 的查询前缀
+   * @default ''
+   */
+  queryPrefix?: string
 }
 
 declare namespace VirtualWaterfallProps {
@@ -238,7 +242,7 @@ declare class VirtualWaterfallComponent extends Component<VirtualWaterfallProps>
 }
 
 declare type VirtualWaterfall = VirtualWaterfallComponent
-const VirtualWaterfall: typeof VirtualWaterfallComponent = (process.env.FRAMEWORK === 'vue' || process.env.FRAMEWORK === 'vue3')
+const VirtualWaterfall: typeof VirtualWaterfallComponent = process.env.FRAMEWORK === 'vue3'
   ? require('./vue').default
   : require('./react').default
 

@@ -27,7 +27,7 @@ declare module '../../index' {
       /** 要保存的本地临时文件路径
        * @supported alipay
        */
-      apFilePath: string
+      apFilePath?: string
       /** 接口调用成功的回调函数 */
       success?: (result: SuccessCallbackResult) => void
     }
@@ -127,7 +127,7 @@ declare module '../../index' {
       /** 文件路径
        * @supported alipay
        */
-      apFilePath: string
+      apFilePath?: string
       /** 本地文件大小，以字节为单位 */
       size: number
     }
@@ -140,7 +140,7 @@ declare module '../../index' {
       /** 文件路径
        * @supported alipay
        */
-      apFilePath: string
+      apFilePath?: string
       /** 接口调用结束的回调函数（调用成功、失败都会执行） */
       complete?: (res: TaroGeneral.CallbackResult) => void
       /** 接口调用失败的回调函数 */
@@ -165,7 +165,7 @@ declare module '../../index' {
       /** 本地文件路径
        * @supported alipay
        */
-      apFilePath: string
+      apFilePath?: string
       /**
        * 计算文件摘要的算法
        * @default 'md5'
@@ -196,12 +196,12 @@ declare module '../../index' {
   }
 
   /** 文件管理器，可通过 [Taro.getFileSystemManager](./getFileSystemManager) 获取。
-   * @supported weapp, tt
+   * @supported weapp, tt, harmony_hybrid
    * @see https://developers.weixin.qq.com/miniprogram/dev/api/file/FileSystemManager.html
    */
   interface FileSystemManager {
     /** 判断文件/目录是否存在
-     * @supported weapp, alipay, swan, jd, qq, tt
+     * @supported weapp, alipay, swan, jd, qq, tt, harmony_hybrid
      * @see https://developers.weixin.qq.com/miniprogram/dev/api/file/FileSystemManager.access.html
      */
     access(option: FileSystemManager.AccessOption): void
@@ -276,7 +276,7 @@ declare module '../../index' {
      */
     ftruncateSync(option: FileSystemManager.FtruncateSyncOption): void
     /** 获取该小程序下的 `本地临时文件` 或 `本地缓存文件` 信息
-     * @supported weapp, alipay, swan, jd, qq, tt
+     * @supported weapp, alipay, swan, jd, qq, tt, harmony_hybrid
      * @see https://developers.weixin.qq.com/miniprogram/dev/api/file/FileSystemManager.getFileInfo.html
      */
     getFileInfo(option: FileSystemManager.getFileInfoOption): void
@@ -339,12 +339,12 @@ declare module '../../index' {
       dirPath: string,
     ): string[]
     /** 读取本地文件内容
-     * @supported weapp, alipay, swan, jd, qq, tt
+     * @supported weapp, alipay, swan, jd, qq, tt, harmony_hybrid
      * @see https://developers.weixin.qq.com/miniprogram/dev/api/file/FileSystemManager.readFile.html
      */
     readFile(option: FileSystemManager.ReadFileOption): void
     /** [FileSystemManager.readFile](#readfile) 的同步版本
-     * @supported weapp, alipay, swan, jd, qq, tt
+     * @supported weapp, alipay, swan, jd, qq, tt, harmony_hybrid
      * @see https://developers.weixin.qq.com/miniprogram/dev/api/file/FileSystemManager.readFileSync.html
      */
     readFileSync(
@@ -664,7 +664,7 @@ declare module '../../index' {
       /** 创建的目录路径 */
       dirPath: string
       /** 是否在递归创建该目录的上级目录后再创建该目录。如果对应的上级目录已经存在，则不创建该上级目录。
-       *  如 dirPath 为 a/b/c/d 且 recursive 为 true，将创建 a 目录，再在 a 目录下创建 b 目录，以此类推直至创建 a/b/c 目录下的 d 目录。 
+       *  如 dirPath 为 a/b/c/d 且 recursive 为 true，将创建 a 目录，再在 a 目录下创建 b 目录，以此类推直至创建 a/b/c 目录下的 d 目录。
        *  @default false
        */
       recursive?: boolean
@@ -818,7 +818,7 @@ declare module '../../index' {
       /** 本地缓存文件路径
        * @supported alipay
        */
-      apFilePath: string
+      apFilePath?: string
       /** 接口调用结束的回调函数（调用成功、失败都会执行） */
       complete?: (res: TaroGeneral.CallbackResult) => void
       /** 接口调用失败的回调函数 */
@@ -1399,7 +1399,7 @@ declare module '../../index' {
     /** 新开页面打开文档，支持格式
      * @supported weapp, alipay, swan, jd, qq, tt
      * @example
-     ```tsx
+     * ```tsx
      * Taro.downloadFile({
      *   url: 'https://example.com/somefile.pdf',
      *   success: function (res) {
@@ -1464,7 +1464,7 @@ declare module '../../index' {
     getFileInfo(option: getFileInfo.Option): Promise<getFileInfo.SuccessCallbackResult | getFileInfo.FailCallbackResult>
 
     /** 获取全局唯一的文件管理器
-     * @supported weapp, alipay, swan, jd, qq, tt
+     * @supported weapp, alipay, swan, jd, qq, tt, harmony_hybrid
      * @see https://developers.weixin.qq.com/miniprogram/dev/api/file/wx.getFileSystemManager.html
      */
     getFileSystemManager(): FileSystemManager

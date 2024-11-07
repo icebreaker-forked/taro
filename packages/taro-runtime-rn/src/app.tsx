@@ -1,9 +1,9 @@
 import { Provider as TCNProvider } from '@tarojs/components-rn'
+import { EventChannel } from '@tarojs/shared'
 import React, { Component, ComponentProps, createElement, createRef, forwardRef } from 'react'
 import { RootSiblingParent } from 'react-native-root-siblings'
 
 import { Current } from './current'
-import EventChannel from './EventChannel'
 import { AppInstance, PageLifeCycle } from './instance'
 import { getPageInstance } from './page'
 import { createRouter, getInitOptions, getRouteEventChannel } from './router'
@@ -12,7 +12,7 @@ import { HOOKS_APP_ID, isFunction } from './utils'
 
 export function isClassComponent (component): boolean {
   return (
-    isFunction(component?.render) || !!component.prototype?.isReactComponent || component.prototype instanceof Component
+    isFunction(component?.render) || !!component?.prototype?.isReactComponent || component?.prototype instanceof Component
   )
 }
 
@@ -35,7 +35,6 @@ export function createReactNativeApp (AppEntry: any, config: RNAppConfig, FirstP
   const isReactComponent = isClassComponent(AppEntry)
   let entryComponent: any = AppEntry
   if (!isReactComponent) {
-    // eslint-disable-next-line react/display-name
     entryComponent = forwardRef((props, ref) => {
       return <AppEntry forwardRef={ref} {...props} />
     })

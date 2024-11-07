@@ -1,8 +1,9 @@
 import { PLATFORMS } from '@tarojs/helper'
 import { isArray, isFunction, PLATFORM_TYPE } from '@tarojs/shared'
-import { ICopyOptions, IPostcssOption } from '@tarojs/taro/types/compile'
+import { IPostcssOption } from '@tarojs/taro/types/compile'
 
 import BuildNativePlugin from '../plugins/BuildNativePlugin'
+import MiniCompileModePlugin from '../plugins/MiniCompileModePlugin'
 import MiniPlugin from '../plugins/MiniPlugin'
 import MiniSplitChunksPlugin from '../plugins/MiniSplitChunksPlugin'
 import WebpackPlugin, { PluginArgs } from './WebpackPlugin'
@@ -11,7 +12,7 @@ import type { MiniCombination } from './MiniCombination'
 
 export class MiniWebpackPlugin {
   combination: MiniCombination
-  pxtransformOption: IPostcssOption['pxtransform']
+  pxtransformOption: IPostcssOption<'mini'>['pxtransform']
 
   constructor (combination: MiniCombination) {
     this.combination = combination
@@ -36,6 +37,12 @@ export class MiniWebpackPlugin {
     const definePluginOptions = plugins.definePlugin.args[0]
     const mainPlugin = this.getMainPlugin(definePluginOptions)
     plugins.miniPlugin = mainPlugin
+
+    if (this.combination.config.experimental?.compileMode === true) {
+      plugins.taroCompileModePlugin = WebpackPlugin.getPlugin(MiniCompileModePlugin, [{
+        combination: this.combination,
+      }])
+    }
 
     return plugins
   }
@@ -69,6 +76,7 @@ export class MiniWebpackPlugin {
     env.FRAMEWORK = JSON.stringify(framework)
     env.TARO_ENV = JSON.stringify(buildAdapter)
     env.TARO_PLATFORM = JSON.stringify(process.env.TARO_PLATFORM || PLATFORM_TYPE.MINI)
+    env.SUPPORT_TARO_POLYFILL = env.SUPPORT_TARO_POLYFILL || '"disabled"'
     const envConstants = Object.keys(env).reduce((target, key) => {
       target[`process.env.${key}`] = env[key]
       return target
@@ -89,15 +97,9 @@ export class MiniWebpackPlugin {
 
   getCopyWebpackPlugin () {
     const combination = this.combination
-    const { appPath, config, isBuildPlugin } = combination
-    let { copy } = config
+    const { appPath, config } = combination
+    const { copy } = config
     let copyWebpackPlugin
-
-    if (isBuildPlugin) {
-      copy ||= {} as ICopyOptions
-      copy!.patterns ||= []
-      copy.patterns.push(combination.buildNativePlugin.getCopyPattern())
-    }
 
     if (copy?.patterns.length) {
       copyWebpackPlugin = WebpackPlugin.getCopyWebpackPlugin(appPath, copy)
@@ -124,7 +126,8 @@ export class MiniWebpackPlugin {
     if (optimizeMainPackage?.enable) {
       miniSplitChunksPlugin = WebpackPlugin.getPlugin(MiniSplitChunksPlugin, [{
         exclude: optimizeMainPackage.exclude,
-        fileType
+        fileType,
+        combination: this.combination
       }])
     }
 
@@ -132,54 +135,17 @@ export class MiniWebpackPlugin {
   }
 
   getMainPlugin (definePluginOptions) {
-    const {
-      sourceDir,
-      outputDir,
-      isBuildNativeComp,
-      newBlended,
-      isBuildPlugin,
-      buildNativePlugin,
-      config,
-      fileType
-    } = this.combination
-    const plugin = isBuildNativeComp ? BuildNativePlugin : MiniPlugin
-    const pxTransformConfig = this.pxtransformOption?.config || {}
+    const { combination } = this
+
     const options = {
-      /** paths */
-      sourceDir,
-      outputDir,
-      runtimePath: config.runtimePath,
-      nodeModulesPath: config.nodeModulesPath,
-      /** config & message */
-      framework: config.framework || 'react',
-      frameworkExts: config.frameworkExts,
-      fileType,
-      template: config.template,
       commonChunks: this.getCommonChunks(),
-      baseLevel: config.baseLevel || 16,
-      minifyXML: config.minifyXML || {},
-      alias: config.alias || {},
       constantsReplaceList: definePluginOptions,
-      pxTransformConfig,
-      /** building mode */
+      pxTransformConfig: this.pxtransformOption?.config || {},
       hot: false,
-      prerender: config.prerender,
-      blended: config.blended,
-      isBuildNativeComp,
-      isBuildPlugin: isBuildPlugin,
-      pluginConfig: buildNativePlugin?.pluginConfig,
-      pluginMainEntry: buildNativePlugin?.pluginMainEntry,
-      skipProcessUsingComponents: config.skipProcessUsingComponents,
-      newBlended,
-      /** hooks & methods */
-      addChunkPages: config.addChunkPages,
-      modifyMiniConfigs: config.modifyMiniConfigs,
-      modifyBuildAssets: config.modifyBuildAssets,
-      onCompilerMake: config.onCompilerMake,
-      onParseCreateElement: config.onParseCreateElement,
-      logger: config.logger
+      combination,
     }
 
+    const plugin = combination.isBuildNativeComp ? BuildNativePlugin : MiniPlugin
     return WebpackPlugin.getPlugin(plugin, [options])
   }
 

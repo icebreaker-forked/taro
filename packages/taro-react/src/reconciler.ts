@@ -1,5 +1,5 @@
 /* eslint-disable @typescript-eslint/indent */
-import { document } from '@tarojs/runtime'
+import { document, FormElement } from '@tarojs/runtime'
 import { isBoolean, isUndefined, noop } from '@tarojs/shared'
 import Reconciler from 'react-reconciler'
 import { DefaultEventPriority } from 'react-reconciler/constants'
@@ -58,7 +58,16 @@ const hostConfig: HostConfig<
     parent.appendChild(child)
   },
   finalizeInitialChildren (dom, type: string, props: any) {
-    updateProps(dom, {}, props) // 提前执行更新属性操作，Taro 在 Page 初始化后会立即从 dom 读取必要信息
+    let newProps = props
+    if (dom instanceof FormElement) {
+      const [defaultName, defaultKey] = ['switch', 'checkbox', 'radio'].includes(type) ? ['checked', 'defaultChecked'] : ['value', 'defaultValue']
+      if (props.hasOwnProperty(defaultKey)) {
+        newProps = { ...newProps, [defaultName]: props[defaultKey] }
+        delete newProps[defaultKey]
+      }
+    }
+
+    updateProps(dom, {}, newProps) // 提前执行更新属性操作，Taro 在 Page 初始化后会立即从 dom 读取必要信息
 
     if (type === 'input' || type === 'textarea') {
       track(dom)
@@ -129,6 +138,10 @@ const hostConfig: HostConfig<
   },
   commitMount: noop,
   commitUpdate (dom, updatePayload, _, oldProps, newProps) {
+    if (!updatePayload) return
+    // payload 只包含 children 的时候，不应该再继续触发后续的属性比较和更新的逻辑了
+    if (updatePayload.length === 2 && updatePayload.includes('children')) return
+
     updatePropsByPayload(dom, oldProps, updatePayload)
     updateFiberProps(dom, newProps)
   },

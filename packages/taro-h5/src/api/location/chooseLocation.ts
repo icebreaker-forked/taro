@@ -1,7 +1,7 @@
 import './style.scss'
 
 import Taro from '@tarojs/api'
-import { stringify } from 'query-string'
+import queryString from 'query-string'
 
 import { MethodHandler } from '../../utils/handler'
 
@@ -23,7 +23,7 @@ function createLocationChooser (handler, key = LOCATION_APIKEY, mapOpt: Taro.cho
     <p class='taro_choose_location_title'>位置</p>
     <button class='taro_choose_location_submit'>完成</button>
   </div>
-  <iframe class='taro_choose_location_frame' frameborder='0' src="https://apis.map.qq.com/tools/locpicker?${stringify(query, { arrayFormat: 'comma', skipNull: true })}" />
+  <iframe class='taro_choose_location_frame' frameborder='0' src="https://apis.map.qq.com/tools/locpicker?${queryString.stringify(query, { arrayFormat: 'comma', skipNull: true })}" />
 </div>
 `
     container = document.createElement('div')
@@ -73,16 +73,17 @@ function createLocationChooser (handler, key = LOCATION_APIKEY, mapOpt: Taro.cho
  * 打开地图选择位置。
  */
 export const chooseLocation: typeof Taro.chooseLocation = ({ success, fail, complete, mapOpts } = {}) => {
-  const key = LOCATION_APIKEY
   const handle = new MethodHandler({ name: 'chooseLocation', success, fail, complete })
   return new Promise((resolve, reject) => {
     const chooseLocation: Partial<Taro.chooseLocation.SuccessCallbackResult> = {}
-    if (!key) {
+    if (typeof LOCATION_APIKEY === 'undefined') {
       console.warn('chooseLocation api 依赖腾讯地图定位api，需要在 defineConstants 中配置 LOCATION_APIKEY')
       return handle.fail({
         errMsg: 'LOCATION_APIKEY needed'
       }, { resolve, reject })
     }
+
+    const key = LOCATION_APIKEY
 
     const onMessage = event => {
       // 接收位置信息，用户选择确认位置点后选点组件会触发该事件，回传用户的位置信息

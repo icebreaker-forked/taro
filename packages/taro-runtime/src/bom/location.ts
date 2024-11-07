@@ -3,10 +3,11 @@ import { isNumber, isString, warn } from '@tarojs/shared'
 import { CONTEXT_ACTIONS } from '../constants'
 import { getCurrentInstance } from '../current'
 import { Events } from '../emitter/emitter'
+import env from '../env'
 import { RuntimeCache } from '../utils/cache'
-import { URL } from './URL'
+import { TaroURLProvider } from './URL'
 
-type PreValue = ReturnType<typeof URL.prototype._toRaw>
+type PreValue = ReturnType<typeof TaroURLProvider.prototype._toRaw>
 
 type Options = {
   window: any
@@ -18,9 +19,9 @@ type LocationContext = {
 const INIT_URL = 'https://taro.com'
 const cache = new RuntimeCache<LocationContext>('location')
 
-export class Location extends Events {
+class TaroLocation extends Events {
   /* private property */
-  #url = new URL(INIT_URL)
+  #url = new TaroURLProvider(INIT_URL)
   #noCheckUrl = false
   #window: any
 
@@ -102,7 +103,7 @@ export class Location extends Events {
       const searchStr = searchArr.length > 0 ? '?' + searchArr.join('&') : ''
       const url = `${INIT_URL}${path.startsWith('/') ? path : '/' + path}${searchStr}`
 
-      this.#url = new URL(url)
+      this.#url = new TaroURLProvider(url)
 
       this.trigger('__reset_history__', this.href)
     }
@@ -309,6 +310,9 @@ export class Location extends Events {
     return cache
   }
 }
+
+export type { TaroLocation }
+export const Location: typeof TaroLocation = process.env.TARO_PLATFORM === 'web' ? env.window.Location : TaroLocation
 
 function generateFullUrl (val = '') {
   const origin = INIT_URL

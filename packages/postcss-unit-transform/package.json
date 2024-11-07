@@ -1,19 +1,36 @@
 {
   "name": "postcss-taro-unit-transform",
-  "version": "3.6.19",
+  "version": "4.0.8-beta.0",
   "description": "小程序单位转换",
+  "author": "O2Team",
+  "license": "MIT",
   "main": "index.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "test": "jest",
+    "test:clear": "jest --clearCache",
+    "test:cov": "jest --coverage",
+    "test:updateSnapshot": "jest --updateSnapshot",
+    "test:ci": "cross-env NODE_ENV=test jest --ci -i"
   },
-  "author": "luckyadam",
-  "license": "MIT",
-  "dependencies": {
-    "postcss": "^6.0.21",
-    "typescript": "^4.7.4"
+  "jest": {
+    "testEnvironment": "node",
+    "transform": {
+      "^.+\\.tsx?$": "ts-jest"
+    },
+    "testRegex": "(/postcss-unit-transform/__tests__/.*|(\\.|/)(test|spec))\\.(jsx?|tsx?)$",
+    "moduleFileExtensions": [
+      "ts",
+      "tsx",
+      "js",
+      "jsx",
+      "json",
+      "node"
+    ],
+    "testPathIgnorePatterns": [
+      "/node_modules/"
+    ]
   },
-  "devDependencies": {
-    "@typescript-eslint/eslint-plugin": "^5.17.0",
-    "@typescript-eslint/parser": "^5.17.0"
+  "peerDependencies": {
+    "postcss": "^8"
   }
 }

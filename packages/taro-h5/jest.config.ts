@@ -1,4 +1,4 @@
-import * as path from 'path'
+import * as path from 'node:path'
 
 import type { Config } from 'jest'
 
@@ -6,27 +6,20 @@ const config: Config = {
   collectCoverage: false,
   globals: {
     window: true,
-    ENABLE_INNER_HTML: true,
-    ENABLE_ADJACENT_HTML: true,
-    ENABLE_SIZE_APIS: true,
-    ENABLE_TEMPLATE_CONTENT: true,
-    ENABLE_MUTATION_OBSERVER: true,
-    ENABLE_CLONE_NODE: true,
-    ENABLE_CONTAINS: true,
   },
   moduleFileExtensions: ['js', 'jsx', 'ts', 'tsx', 'json', 'node'],
   moduleNameMapper: {
-    '@tarojs/taro': '@tarojs/taro-h5',
+    '@tarojs/taro': '<rootDir>/src/index.ts',
     '@tarojs/taro-h5': '<rootDir>/src/index.ts',
     '@tarojs/shared': path.resolve(__dirname, '..', '..', 'packages/shared/src/index.ts'),
     '@tarojs/plugin-framework-react/dist/runtime': '<rootDir>/__mocks__/taro-framework',
-    '@tarojs/plugin-framework-vue2/dist/runtime': '<rootDir>/__mocks__/taro-framework',
     '@tarojs/plugin-framework-vue3/dist/runtime': '<rootDir>/__mocks__/taro-framework',
     // @ts-ignore
     '(^.+\\.(css|sass|scss|less|styl|stylus|pcss|postcss)$)|weui': ['jest-transform-css', {
       module: true
     }],
-    '\\.(gif|ttf|eot|svg)$': '<rootDir>/__mocks__/fileMock.js'
+    '\\.(gif|ttf|eot|svg)$': '<rootDir>/__mocks__/fileMock.js',
+    platform: '<rootDir>/__mocks__/platform.ts',
   },
   preset: 'ts-jest',
   setupFiles: ['<rootDir>/__mocks__/setEnv.ts'],

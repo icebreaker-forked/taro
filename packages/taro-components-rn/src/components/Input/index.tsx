@@ -26,13 +26,14 @@
 
 import * as React from 'react'
 import {
-  TextInput,
-  Platform,
+  KeyboardTypeOptions,
   NativeSyntheticEvent,
-  TextInputKeyPressEventData,
+  Platform,
+  TextInput,
   TextInputContentSizeChangeEventData,
-  KeyboardTypeOptions
+  TextInputKeyPressEventData
 } from 'react-native'
+
 import { noop, omit, parseStyles, useUpdateEffect } from '../../utils'
 import { InputProps } from './PropsType'
 
@@ -205,7 +206,7 @@ const _Input = (props: InputProps) => {
     }
   })()
 
-  const defaultValue = type === 'number' && value ? value + '' : value
+  const defaultValue = props.defaultValue ?? (type === 'number' && value ? value + '' : value)
 
   // fix: https://reactnative.dev/docs/textinput#multiline
   const textAlignVertical = _multiline ? 'top' : 'auto'

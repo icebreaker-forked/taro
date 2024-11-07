@@ -9,3 +9,14 @@ export function generateMinimalEscapeCode (ast: t.File) {
     },
   }).code
 }
+
+// 自定义序列化器函数，用于去除反斜杠const
+export const removeBackslashesSerializer = {
+  test: (value) => typeof value === 'string',
+  print: (value) => value.replace(/\\/g, '')
+}
+
+export const changeBackslashesSerializer = {
+  test: (value) => typeof value === 'string',
+  print: (value) => value.replace(/\\/g, '/').replace(/\/\//g, '/')
+}

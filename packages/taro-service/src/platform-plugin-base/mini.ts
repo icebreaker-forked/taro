@@ -1,4 +1,6 @@
-import { recursiveMerge } from '@tarojs/helper'
+import * as path from 'node:path'
+
+import { recursiveMerge, taroJsMiniComponentsPath } from '@tarojs/helper'
 import { isObject, PLATFORM_TYPE } from '@tarojs/shared'
 
 import { getPkgVersion } from '../utils/package'
@@ -21,8 +23,11 @@ export abstract class TaroPlatformBase<T extends TConfig = TConfig> extends Taro
   abstract globalObject: string
   abstract fileType: IFileType
   abstract template: RecursiveTemplate | UnRecursiveTemplate
+  // Note: 给所有的小程序平台一个默认的 taroComponentsPath
+  taroComponentsPath: string = taroJsMiniComponentsPath
   projectConfigJson?: string
-  taroComponentsPath?: string
+
+  private projectConfigJsonOutputPath: string
 
   /**
    * 1. 清空 dist 文件夹
@@ -52,6 +57,18 @@ export abstract class TaroPlatformBase<T extends TConfig = TConfig> extends Taro
     if (this.ctx.initialConfig.logger?.quiet === false) {
       const { printLog, processTypeEnum } = this.ctx.helper
       printLog(processTypeEnum.START, '开发者工具-项目目录', `${this.ctx.paths.outputPath}`)
+    }
+    // Webpack5 代码自动热重载
+    if (this.compiler === 'webpack5' && this.config.isWatch && this.projectConfigJsonOutputPath) {
+      try {
+        const projectConfig = require(this.projectConfigJsonOutputPath)
+        if (projectConfig.setting?.compileHotReLoad === true) {
+          this.ctx.modifyWebpackChain(({ chain }) => {
+            chain.plugin('TaroMiniHMRPlugin')
+              .use(require(path.join(__dirname, './webpack/hmr-plugin.js')).default)
+          })
+        }
+      } catch (e) {} // eslint-disable-line no-empty
     }
   }
 
@@ -83,20 +100,13 @@ ${exampleCommand}`))
   }
 
   /**
-   * 返回当前项目内的 @tarojs/mini-runner 包
+   * 返回当前项目内的 runner 包
    */
   protected async getRunner () {
     const { appPath } = this.ctx.paths
     const { npm } = this.helper
 
-    let runnerPkg: string
-    switch (this.compiler) {
-      case 'webpack5':
-        runnerPkg = '@tarojs/webpack5-runner'
-        break
-      default:
-        runnerPkg = '@tarojs/mini-runner'
-    }
+    const runnerPkg = this.compiler === 'vite' ? '@tarojs/vite-runner' : '@tarojs/webpack5-runner'
 
     const runner = await npm.getNpmPkg(runnerPkg, appPath)
 
@@ -104,7 +114,7 @@ ${exampleCommand}`))
   }
 
   /**
-   * 准备 mini-runner 参数
+   * 准备 runner 参数
    * @param extraOptions 需要额外合入 Options 的配置项
    */
   protected getOptions (extraOptions = {}) {
@@ -132,8 +142,8 @@ ${exampleCommand}`))
   }
 
   /**
-   * 调用 mini-runner 开始编译
-   * @param extraOptions 需要额外传入 @tarojs/mini-runner 的配置项
+   * 调用 runner 开始编译
+   * @param extraOptions 需要额外传入 runner 的配置项
    */
   private async build (extraOptions = {}) {
     this.ctx.onBuildInit?.(this)
@@ -165,6 +175,7 @@ ${exampleCommand}`))
       srcConfigName: src,
       distConfigName: dist
     })
+    this.projectConfigJsonOutputPath = `${this.ctx.paths.outputPath}/${dist}`
   }
 
   /**
@@ -187,7 +198,7 @@ ${exampleCommand}`))
   }
 
   /**
-   * 调用 mini-runner 开启编译
+   * 调用 runner 开启编译
    */
   public async start () {
     await this.setup()

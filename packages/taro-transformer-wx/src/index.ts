@@ -1,8 +1,9 @@
 import generate from '@babel/generator'
 import { parse } from '@babel/parser'
-import traverse, { Binding, NodePath } from '@babel/traverse'
+import template from '@babel/template'
+import traverse from '@babel/traverse'
 import * as t from '@babel/types'
-import { prettyPrint } from 'html'
+import * as prettier from 'prettier'
 import { cloneDeep, get as safeGet, isArray, snakeCase } from 'lodash'
 import * as ts from 'typescript'
 
@@ -33,20 +34,23 @@ import {
   TARO_PACKAGE_NAME,
   THIRD_PARTY_COMPONENTS,
 } from './constant'
-import { isTestEnv } from './env'
+import { resetGlobals } from './global'
 import { Options, setTransformOptions } from './options'
 import {
   codeFrameError,
   findFirstIdentifierFromMemberExpression,
+  getLineBreak,
   getSuperClassCode,
   isArrayMapCallExpression,
   isContainJSXElement,
+  printToLogFile,
   replaceJSXTextWithTextComponent,
   setting,
+  updateLogFileContent,
 } from './utils'
 import { traverseWxsFile } from './wxs'
 
-const template = require('@babel/template')
+import type { Binding, NodePath } from '@babel/traverse'
 
 function getIdsFromMemberProps(member: t.MemberExpression) {
   let ids: string[] = []
@@ -126,14 +130,14 @@ function findDeclarationScope(path: NodePath<t.Node>, id: t.Identifier) {
   throw codeFrameError(path.node, '该引用从未被定义')
 }
 
-function buildFullPathThisPropsRef(id: t.Identifier, memberIds: string[], path: NodePath<t.Node>) {
+function buildFullPathThisPropsRef(id: t.Identifier, memberIds: string[], path: NodePath<t.Node>): t.MemberExpression | undefined {
   const scopePath = findDeclarationScope(path, id)
   const binding = scopePath.scope.getOwnBinding(id.name)
   if (binding) {
     const bindingPath = binding.path
     if (bindingPath.isVariableDeclarator()) {
-      const dclId = bindingPath.get('id')
-      const dclInit = bindingPath.get('init')
+      const dclId = bindingPath.get('id') as any
+      const dclInit = bindingPath.get('init') as any
       let dclInitIds: string[] = []
       if (t.isMemberExpression(dclInit)) {
         dclInitIds = getIdsFromMemberProps((dclInit as any).node)
@@ -141,7 +145,7 @@ function buildFullPathThisPropsRef(id: t.Identifier, memberIds: string[], path: 
           memberIds.shift()
         }
         if (dclInitIds[0] === 'this' && dclInitIds[1] === 'props') {
-          return template(dclInitIds.concat(memberIds).join('.'))().expression
+          return template.expression(dclInitIds.concat(memberIds).join('.'))() as t.MemberExpression
         }
       }
     }
@@ -197,6 +201,7 @@ export interface TransformResult extends Result {
 export type TransformOptions = Options
 
 function parseCode (code: string) {
+  updateLogFileContent(`INFO [taro-transformer-wx] parseCode - 入参 ${getLineBreak()}code: ${code} ${getLineBreak()}`)
   const ast: any = parse(code, {
     sourceType: 'module',
     plugins: [
@@ -220,6 +225,7 @@ function parseCode (code: string) {
 }
 
 export default function transform(options: TransformOptions): TransformResult {
+  resetGlobals(options)
   if (options.adapter) {
     setAdapter(options.adapter)
     if (Adapter.type === Adapters.quickapp) {
@@ -284,25 +290,29 @@ export default function transform(options: TransformOptions): TransformResult {
   // })
 
   if (options.isNormal) {
-    if (options.isTyped) {
-      const mainClassNode = ast.program.body.find((v) => {
-        return t.isClassDeclaration(v)
-      }) as t.ClassDeclaration | undefined
-      if (mainClassNode) {
-        resetTSClassProperty(mainClassNode.body.body as any)
+    try {
+      if (options.isTyped) {
+        const mainClassNode = ast.program.body.find((v) => {
+          return t.isClassDeclaration(v)
+        }) as t.ClassDeclaration | undefined
+        if (mainClassNode) {
+          resetTSClassProperty(mainClassNode.body.body as any)
+        }
       }
-    }
 
-    // 对wxs文件进行转换
-    if (options.sourcePath.endsWith('.wxs')) {
-      return traverseWxsFile(ast, defaultResult)
-    }
+      // 对wxs文件进行转换
+      if (options.sourcePath.endsWith('.wxs')) {
+        return traverseWxsFile(ast, defaultResult)
+      }
 
-    const code = generate(ast.program as any).code
-    return {
-      ...defaultResult,
-      ast,
-      code,
+      const code = generate(ast.program as any).code
+      return {
+        ...defaultResult,
+        ast,
+        code,
+      }
+    } finally {
+      printToLogFile()
     }
   }
   // transformFromAst(ast, code)
@@ -554,7 +564,6 @@ export default function transform(options: TransformOptions): TransformResult {
             if (index !== cases.length - 1 && t.isNullLiteral(Case.test)) {
               throw codeFrameError(Case, '含有 JSX 的 switch case 语句只有最后一个 case 才能是 default')
             }
-            // tslint:disable-next-line: strict-type-predicates
             const test =
               Case.test === null ? t.nullLiteral() : t.binaryExpression('===', discriminant as any, Case.test as any)
             return { block, test }
@@ -624,8 +633,10 @@ export default function transform(options: TransformOptions): TransformResult {
       }
 
       if (name === 'Provider') {
-        const modules = path.scope.getAllBindings('module')
-        const providerBinding = Object.values(modules).some((m: Binding) => m.identifier.name === 'Provider')
+        const modules = Object.entries(path.scope.getAllBindings()).filter(([, binding]) => {
+          return binding.kind === 'module'
+        }).map(([, binding]) => (binding))
+        const providerBinding = modules.some((m: Binding) => m.identifier.name === 'Provider')
         if (providerBinding) {
           path.node.name = t.jSXIdentifier('View') as any
           const store = path.node.attributes.find((attr) => t.isJSXAttribute(attr) && attr.name.name === 'store')
@@ -669,7 +680,6 @@ export default function transform(options: TransformOptions): TransformResult {
         }
       }
 
-      // tslint:disable-next-line: strict-type-predicates
       if (!t.isJSXIdentifier(name) || value === null || t.isStringLiteral(value) || t.isJSXElement(value)) {
         return
       }
@@ -677,7 +687,7 @@ export default function transform(options: TransformOptions): TransformResult {
       const expr = (value as t.JSXExpressionContainer)?.expression as any
       const exprPath = path.get('value.expression')
       const classDecl = path.findParent((p) => p.isClassDeclaration())
-      const classDeclName = classDecl && classDecl.isClassDeclaration() && safeGet(classDecl, 'node.id.name', '')
+      const classDeclName = classDecl && classDecl.isClassDeclaration() && safeGet(classDecl, 'node.id.name', '') as any
       let isConverted = false
       if (classDeclName) {
         isConverted = classDeclName === '_C' || classDeclName.endsWith('Tmpl')
@@ -941,10 +951,7 @@ export default function transform(options: TransformOptions): TransformResult {
   result.ast = ast
   const lessThanSignReg = new RegExp(lessThanSignPlacehold, 'g')
   result.compressedTemplate = result.template.replace(lessThanSignReg, '<')
-  result.template = prettyPrint(result.template, {
-    max_char: 0,
-    unformatted: isTestEnv ? [] : ['text'],
-  })
+  result.template = prettier.format(result.template, { parser: 'html' })
   result.template = result.template.replace(lessThanSignReg, '<')
   result.imageSrcs = Array.from(imageSource)
   return result

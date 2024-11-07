@@ -3,8 +3,12 @@ export enum PLATFORM_TYPE {
   WEB = 'web',
   RN = 'rn',
   HARMONY = 'harmony',
-  QUICK = 'quickapp'
+  QUICK = 'quickapp',
 }
+
+export const COMPILE_MODE_IDENTIFIER_PREFIX = 'f'
+
+export const COMPILE_MODE_SUB_RENDER_FN = 'subRenderFn'
 
 export const PLATFORM_CONFIG_MAP = {
   h5: {
@@ -21,5 +25,5 @@ export const PLATFORM_CONFIG_MAP = {
   },
   quickapp: {
     type: PLATFORM_TYPE.QUICK
-  }
+  },
 }

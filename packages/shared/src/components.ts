@@ -75,7 +75,8 @@ const RichText = {
 const Text = {
   selectable: DEFAULT_FALSE,
   space: NO_DEFAULT_VALUE,
-  decode: DEFAULT_FALSE
+  decode: DEFAULT_FALSE,
+  ...touchEvents
 }
 
 const Button = {
@@ -140,7 +141,8 @@ const Input = {
 
 const Label = {
   for: NO_DEFAULT_VALUE,
-  name: NO_DEFAULT_VALUE
+  name: NO_DEFAULT_VALUE,
+  ...touchEvents
 }
 
 const Picker = {
@@ -443,6 +445,8 @@ const NativeSlot = {
   name: NO_DEFAULT_VALUE
 }
 
+const Script = {}
+
 export const internalComponents: Record<string, Record<string, string>> = {
   View,
   Icon,
@@ -484,6 +488,7 @@ export const internalComponents: Record<string, Record<string, string>> = {
   Slot,
   SlotView,
   NativeSlot,
+  Script,
 }
 
 export const controlledComponent = new Set([
@@ -520,6 +525,7 @@ export const voidElements = new Set([
 export const nestElements = new Map([
   ['view', -1],
   ['catch-view', -1],
+  ['click-view', -1],
   ['cover-view', -1],
   ['static-view', -1],
   ['pure-view', -1],
@@ -532,5 +538,5 @@ export const nestElements = new Map([
   ['form', 4],
   ['scroll-view', 4],
   ['swiper', 4],
-  ['swiper-item', 4]
+  ['swiper-item', 4],
 ])
